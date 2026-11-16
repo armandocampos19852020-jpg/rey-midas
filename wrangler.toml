@@ -1,0 +1,8 @@
+name = "metal-music-hub"
+compatibility_date = "2026-11-16"
+pages_build_output_dir = "."
+
+# Cloudflare Pages: proyecto estatico, sin build.
+# En el dashboard de Pages: Framework preset = None, Build command = (vacio),
+# Build output directory = .
+# Dominio personalizado: iaabismalhellfire.net
