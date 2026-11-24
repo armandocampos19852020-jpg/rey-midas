@@ -826,5 +826,128 @@ npx wrangler pages deploy ./public \
       document.getElementById('dlWrangler').addEventListener('click', function(){ download('wrangler.toml', SNIPPETS.wrangler()); });
       document.getElementById('dlHeaders').addEventListener('click', function(){ download('_headers', SNIPPETS.headers()); });
     </script>
+  
+<!-- ABISMAL AUDIO ENGINE v3: power + clarity -->
+<div id="abismal-engine" style="position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#0a0a0a;border-top:3px solid #ff1a1a;color:#fff;font-family:system-ui,sans-serif;padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;box-shadow:0 -4px 24px rgba(255,0,0,.35)">
+  <strong style="color:#ff1a1a">🔥 ABISMAL ENGINE v3</strong>
+  <button id="aePlay" style="background:#ff1a1a;color:#fff;border:0;padding:10px 18px;font-weight:800;cursor:pointer;border-radius:6px">▶ PLAY</button>
+  <button id="aeStop" style="background:#222;color:#fff;border:1px solid #555;padding:10px 14px;font-weight:700;cursor:pointer;border-radius:6px">■ STOP</button>
+  <label>Volumen <input id="aeVol" type="range" min="0" max="150" value="110" style="width:120px;vertical-align:middle"> <span id="aeVolVal">110%</span></label>
+  <label>Distorsión <input id="aeDrive" type="range" min="10" max="80" value="35" style="width:100px;vertical-align:middle"></label>
+  <label>Riff <select id="aeRiff" style="background:#222;color:#fff;padding:6px"><option value="thrash">Thrash — 180 BPM</option><option value="death">Death — 200 BPM</option><option value="doom">Doom — 70 BPM</option></select></label>
+  <span id="aeStatus" style="color:#ffb3b3;font-size:13px">Listo. Pulsa PLAY.</span>
+</div>
+<script>
+(function(){
+  var ctx=null, master=null, comp=null, shaper=null, cabLP=null, cabHP=null, presence=null, inputBus=null, drumBus=null, noiseBuf=null;
+  var playing=false, timer=null, step=0, nextTime=0, bpm=180, riff='thrash';
+  var RIFFS={
+    thrash:[40,40,43,40,45,40,43,46, 40,40,43,40,38,40,43,45],
+    death:[40,39,40,46,40,39,40,43, 40,39,40,46,47,46,43,40],
+    doom:[40,40,40,43, 36,36,36,38, 40,40,40,45, 43,43,41,40]
+  };
+  function midi(n){return 440*Math.pow(2,(n-69)/12);}
+  function driveCurve(k){
+    var n=1024, c=new Float32Array(n);
+    for(var i=0;i<n;i++){var x=i*2/n-1; c[i]=(1+k)*x/(1+k*Math.abs(x));}
+    return c;
+  }
+  function init(){
+    if(ctx) return;
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    // noise buffer for drums
+    noiseBuf=ctx.createBuffer(1, ctx.sampleRate*0.5, ctx.sampleRate);
+    var d=noiseBuf.getChannelData(0); for(var i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    inputBus=ctx.createGain(); inputBus.gain.value=1;
+    shaper=ctx.createWaveShaper(); shaper.oversample='4x'; shaper.curve=driveCurve(35);
+    // Cab sim: highpass 90Hz (quita lodo), lowpass 5200Hz, presence boost 3.5kHz
+    cabHP=ctx.createBiquadFilter(); cabHP.type='highpass'; cabHP.frequency.value=90;
+    cabLP=ctx.createBiquadFilter(); cabLP.type='lowpass'; cabLP.frequency.value=5200; cabLP.Q.value=0.5;
+    presence=ctx.createBiquadFilter(); presence.type='peaking'; presence.frequency.value=3500; presence.Q.value=1; presence.gain.value=6;
+    comp=ctx.createDynamicsCompressor();
+    comp.threshold.value=-10; comp.knee.value=4; comp.ratio.value=10;
+    comp.attack.value=0.002; comp.release.value=0.18;
+    master=ctx.createGain(); master.gain.value=1.32; // 110% x 1.2
+    drumBus=ctx.createGain(); drumBus.gain.value=0.9;
+    inputBus.connect(shaper); shaper.connect(cabHP); cabHP.connect(cabLP); cabLP.connect(presence); presence.connect(comp);
+    comp.connect(master); drumBus.connect(master); master.connect(ctx.destination);
+  }
+  function chord(m, t, dur){
+    // Power chord: root + fifth + octave, each with 2 detuned saws = thick, clear
+    var notes=[m, m+7, m+12];
+    notes.forEach(function(n, idx){
+      var g=ctx.createGain(); var vol = idx===0?0.55: idx===1?0.45:0.35;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(vol,t+0.006);
+      g.gain.setValueAtTime(vol,t+dur*0.6);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      g.connect(inputBus);
+      [-7,7].forEach(function(det){
+        var osc=ctx.createOscillator(); osc.type='sawtooth';
+        osc.frequency.value=midi(n); osc.detune.value=det;
+        osc.connect(g); osc.start(t); osc.stop(t+dur+0.05);
+      });
+    });
+    // Sub bass, clean, only root
+    var sub=ctx.createOscillator(); sub.type='triangle'; sub.frequency.value=midi(m-12);
+    var sg=ctx.createGain(); sg.gain.setValueAtTime(0.5,t); sg.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    sub.connect(sg); sg.connect(master); sub.start(t); sub.stop(t+dur+0.05);
+  }
+  function kick(t){
+    var o=ctx.createOscillator(), g=ctx.createGain();
+    o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(45,t+0.12);
+    g.gain.setValueAtTime(1.0,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.22);
+    o.connect(g); g.connect(drumBus); o.start(t); o.stop(t+0.25);
+  }
+  function snare(t){
+    var src=ctx.createBufferSource(); src.buffer=noiseBuf;
+    var f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1800; f.Q.value=0.8;
+    var g=ctx.createGain(); g.gain.setValueAtTime(0.7,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.16);
+    src.connect(f); f.connect(g); g.connect(drumBus); src.start(t); src.stop(t+0.2);
+  }
+  function hat(t){
+    var src=ctx.createBufferSource(); src.buffer=noiseBuf;
+    var f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=8000;
+    var g=ctx.createGain(); g.gain.setValueAtTime(0.25,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+    src.connect(f); f.connect(g); g.connect(drumBus); src.start(t); src.stop(t+0.06);
+  }
+  function schedule(){
+    if(!playing) return;
+    var spb=60/bpm/2;
+    while(nextTime < ctx.currentTime + 0.12){
+      var seq=RIFFS[riff];
+      chord(seq[step%seq.length], nextTime, spb*0.92);
+      if(step%4===0) kick(nextTime);
+      if(step%4===2) snare(nextTime);
+      hat(nextTime);
+      nextTime+=spb; step++;
+    }
+  }
+  function play(){
+    init(); if(ctx.state==='suspended') ctx.resume();
+    bpm = riff==='doom'?70 : riff==='death'?200 : 180;
+    playing=true; step=0; nextTime=ctx.currentTime+0.05;
+    timer=setInterval(schedule,25);
+    document.getElementById('aeStatus').textContent='Sonando: '+riff.toUpperCase()+' — '+bpm+' BPM. Power chords + batería.';
+    document.getElementById('aePlay').textContent='⏸ PAUSA';
+  }
+  function stop(){
+    playing=false; if(timer) clearInterval(timer);
+    document.getElementById('aeStatus').textContent='Parado.';
+    document.getElementById('aePlay').textContent='▶ PLAY';
+  }
+  document.getElementById('aePlay').addEventListener('click', function(){ playing?stop():play(); });
+  document.getElementById('aeStop').addEventListener('click', stop);
+  document.getElementById('aeRiff').addEventListener('change', function(e){ riff=e.target.value; if(playing){stop(); play();} });
+  document.getElementById('aeVol').addEventListener('input', function(e){
+    document.getElementById('aeVolVal').textContent=e.target.value+'%';
+    if(master) master.gain.value=e.target.value/100*1.2;
+  });
+  document.getElementById('aeDrive').addEventListener('input', function(e){
+    if(shaper) shaper.curve=driveCurve(parseInt(e.target.value,10));
+  });
+})();
+</script>
+
   </body>
 </html>
