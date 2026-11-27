@@ -318,6 +318,8 @@
       .genre-detail .bands-line b{ color:var(--text); }
       .spotify-btn{ display:inline-block; margin-top:18px; background:#1DB954; color:#000; font-weight:800; text-decoration:none; padding:12px 20px; border-radius:999px; font-size:.98rem; }
       .spotify-btn:hover{ background:#1ed760; }
+      .ytmusic-btn{ display:inline-block; margin-top:18px; margin-left:10px; background:#FF0000; color:#fff; font-weight:800; text-decoration:none; padding:12px 20px; border-radius:999px; font-size:.98rem; }
+      .ytmusic-btn:hover{ background:#cc0000; }
       .empty{
         border:1px dashed var(--line-hot); border-radius:var(--radius);
         padding:28px; text-align:center; color:var(--muted);
@@ -787,7 +789,8 @@ npx wrangler pages deploy ./public \
             '<div class="cell"><p class="k">Intensidad</p><p class="v">' + g.intensity + ' / 5 llamas</p></div>' +
           '</div>' +
           '<p class="bands-line"><b>Bandas clave:</b> ' + g.bands.join(' • ') + ' &nbsp;·&nbsp; En la plataforma: el motor musical etiqueta cada track con estos rasgos y Colab verifica la clasificación.</p>' +
-          '<a class="spotify-btn" href="' + g.spotify + '" target="_blank" rel="noopener">▶ Escuchar en Spotify</a>';
+          '<a class="spotify-btn" href="' + g.spotify + '" target="_blank" rel="noopener">▶ Escuchar en Spotify</a>' +
+          '<a class="ytmusic-btn" href="https://music.youtube.com/search?q=' + encodeURIComponent(g.name) + '" target="_blank" rel="noopener">▶ Escuchar en YouTube Music</a>';
       }
       document.getElementById('familyChips').addEventListener('click', function(e){
         var btn = e.target.closest('.chip');
